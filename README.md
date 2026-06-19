@@ -8,22 +8,10 @@ rankingiem TOP5 dla kazdego poziomu trudnosci.
 ## Wymagania
 
 - Kompilator C++ wspierajacy standard C++17 (testowane na g++ 13).
-- Opcjonalnie: CMake 3.10+ (do budowania przez `CMakeLists.txt`).
 
 ## Budowanie
 
-### Wariant A: CMake (zalecany)
-
-```bash
-mkdir build && cd build
-cmake ..
-cmake --build .
-```
-
-Plik wykonywalny `ZgadnijLiczbe` (lub `ZgadnijLiczbe.exe` na Windows) powstanie
-w katalogu `build`.
-
-### Wariant B: bezposrednio g++
+### Wariant A: bezposrednio g++
 
 ```bash
 g++ -std=c++17 -Wall -Wextra -Iinclude src/*.cpp -o zgadnij_liczbe
@@ -32,8 +20,7 @@ g++ -std=c++17 -Wall -Wextra -Iinclude src/*.cpp -o zgadnij_liczbe
 ## Uruchamianie
 
 ```bash
-./zgadnij_liczbe        # Linux/macOS, wariant B
-./ZgadnijLiczbe          # po zbudowaniu przez CMake
+./zgadnij_liczbe        # Linux/macOS
 ```
 
 Gra przy starcie tworzy (lub wczytuje, jesli juz istnieja) dwa pliki w
@@ -120,81 +107,10 @@ Dostepne opcje:
 - W rankingu dla danego poziomu trudnosci przechowywanych jest maksymalnie
   5 najlepszych wynikow - slabsze automatycznie wypadaja z listy.
 
-## Architektura i 4 zasady programowania obiektowego
-
-Projekt jest podzielony tak, aby **kazda klasa miala swoj wlasny plik**
-(`include/Klasa.h` + `src/Klasa.cpp`). Pelna lista klas znajduje sie w
-`CMakeLists.txt`. Ponizej mapa, gdzie szukac kazdego z czterech zalozen OOP:
-
-### Abstrakcja
-
-- **`ILanguage`** (`include/ILanguage.h`) - czysty interfejs (klasa
-  abstrakcyjna z samymi metodami czysto wirtualnymi). Definiuje "co znaczy
-  byc jezykiem gry", bez ujawniania, jak konkretnie teksty sa przechowywane.
-- **`Game`** (`include/Game.h`, `src/Game.cpp`) - klasa abstrakcyjna
-  (czysto wirtualne `getModeName()`), ktora implementuje wzorzec szablonowej
-  metody: `play()` zawiera caly wspolny algorytm rozgrywki, a szczegoly
-  rozniace StandardGame od NewGamePlusGame sa ukryte za wirtualnym haczykiem
-  `onAttemptCompleted()`.
-
-### Hermetyzacja (enkapsulacja)
-
-- **`Settings`** - jezyk i flaga trybu zakladu sa prywatne, dostepne tylko
-  przez gettery/settery; nikt z zewnatrz nie manipuluje wewnetrznym
-  `unique_ptr<ILanguage>` bezposrednio.
-- **`HallOfFame`** - wewnetrzna mapa rankingow jest prywatna; na zewnatrz
-  wystawione jest tylko bezpieczne API (`addEntry`, `getTop`, `clear`) -
-  caly mechanizm sortowania i przycinania do 5 wynikow jest schowany.
-- **`ScoreEntry`** - niemutowalny obiekt wartosci: wszystkie pola prywatne,
-  ustawiane tylko raz w konstruktorze.
-- **`Timer`**, **`RandomGenerator`** - chowaja szczegoly implementacji
-  (`std::chrono`, `std::mt19937`) za prostym API.
-
-### Dziedziczenie
-
-- **`PolishLanguage`** i **`EnglishLanguage`** dziedzicza po `ILanguage`.
-- **`StandardGame`** i **`NewGamePlusGame`** dziedzicza po `Game`.
-
-### Polimorfizm
-
-- Caly interfejs gry jest tworzony raz, a nastepnie wybierany jest
-  **w czasie dzialania programu** konkretny jezyk (`Settings` przechowuje
-  `unique_ptr<ILanguage>`). Wywolanie `language.getText(...)` zwraca inny
-  tekst w zaleznosci od tego, czy pod spodem jest `PolishLanguage` czy
-  `EnglishLanguage` - to bylo wskazane w wymaganiach jako miejsce na
-  polimorfizm.
-- `GameSetupScreen` tworzy obiekt `StandardGame` albo `NewGamePlusGame` i
-  zwraca go jako `std::unique_ptr<Game>` - reszta programu (`GameScreen`,
-  `Application`) wywoluje `game->play()`, `game->getModeName()`,
-  `game->isNewGamePlusMode()` bez wiedzy, z ktora konkretna klasa ma do
-  czynienia. Zachowanie (np. czy liczba bywa przelosowywana) zmienia sie
-  polimorficznie przez nadpisanie `onAttemptCompleted()`.
-
-## Decyzje projektowe (gdyby trzeba bylo cos doprecyzowac)
-
-Specyfikacja w kilku miejscach pozwalala na rozna interpretacje - poniewaz
-nie byly to kwestie oczywiste, oto jak zostalo to rozstrzygniete w kodzie
-(latwo zmienic, jesli oczekiwania byly inne):
-
-- Interwal przelosowania w "Nowej grze plus" (6/7/8) jest losowany **raz**,
-  na starcie rozgrywki, i obowiazuje do jej konca.
-- Przegrana w trybie zakladu liczy sie do "rozegranych gier" (odblokowuje
-  Hall of Fame w menu), ale **nie** tworzy wpisu w rankingu.
-- Wyczyszczenie Hall of Fame nie zeruje licznika "rozegranych gier" -
-  opcja "Hall of Fame" w menu powitalnym pozostaje widoczna.
-- W rankingu kazdego poziomu trudnosci przechowywanych jest tylko TOP5 -
-  wyniki gorsze automatycznie nie sa zapisywane.
-- Teksty w kodzie (rowniez polskie) sa pisane bez polskich znakow
-  diakrytycznych (a, c, e, l, n, o, s, z, z), aby uniknac problemow z
-  kodowaniem konsoli na niektorych systemach (zwlaszcza Windows). Jesli
-  Twoja konsola dobrze obsluguje UTF-8, mozesz swobodnie dopisac znaki
-  diakrytyczne w plikach `PolishLanguage.cpp` / `EnglishLanguage.cpp`.
-
 ## Struktura katalogow
 
 ```
 ZgadnijLiczbe/
-|-- CMakeLists.txt
 |-- README.md
 |-- include/      (26 plikow .h - jeden naglowek na klase/typ)
 `-- src/           (22 pliki .cpp - main.cpp + implementacje klas)
